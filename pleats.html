@@ -255,9 +255,6 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
 
     <div class="card">
       <h2>🎁 상품 담기</h2>
-      <label class="fld">상품번호 <span class="muted">(방송에서 부른 번호)</span></label>
-      <input type="number" id="inpNo" inputmode="numeric" placeholder="예) 5">
-
       <label class="fld">종류</label>
       <select id="selCat" onchange="catChanged()">
         <option value="">종류를 선택하세요</option>
@@ -279,9 +276,6 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
 
       <label class="fld">칼라</label>
       <input type="text" id="inpColor" placeholder="예) 블랙 (방송 안내 컬러)">
-
-      <label class="fld">사이즈 <span class="muted">(비우면 FREE)</span></label>
-      <input type="text" id="inpSize" placeholder="FREE">
 
       <label class="fld">수량</label>
       <div class="qty-row">
@@ -428,8 +422,6 @@ function chgQty(d){
 
 /* ---------- 장바구니 ---------- */
 function addToCart(){
-  const no = parseInt($("inpNo").value, 10);
-  if(!no && no !== 0){ alert("상품번호를 입력해주세요."); $("inpNo").focus(); return; }
   const cat = $("selCat").value;
   if(!cat){ alert("종류를 선택해주세요."); return; }
 
@@ -447,14 +439,13 @@ function addToCart(){
 
   const color = $("inpColor").value.trim();
   if(!color){ alert("칼라를 입력해주세요."); $("inpColor").focus(); return; }
-  const size = $("inpSize").value.trim() || "FREE";
   const qty = parseInt($("inpQty").value,10) || 1;
 
-  const same = cart.find(c => c.no===no && c.name===name && c.price===price && c.color===color && c.size===size);
+  const same = cart.find(c => c.name===name && c.price===price && c.color===color);
   if(same){ same.qty += qty; }
-  else{ cart.push({ no, name, price, color, size, qty }); }
+  else{ cart.push({ name, price, color, qty }); }
 
-  $("inpNo").value = ""; $("inpColor").value = ""; $("inpSize").value = "";
+  $("inpColor").value = "";
   $("inpQty").value = 1; $("selCat").value = ""; catChanged();
   $("inpItemName").value = ""; $("inpPrice").value = "";
   renderCart();
@@ -477,8 +468,8 @@ function renderCart(){
     list.innerHTML = cart.map((c,i)=>`
       <div class="cart-item">
         <div>
-          <div class="ci-name">${c.no}번 · ${c.name}</div>
-          <div class="ci-opt">${c.color} / ${c.size} / ${c.qty}개</div>
+          <div class="ci-name">${c.name}</div>
+          <div class="ci-opt">${c.color} / ${c.qty}개</div>
           <button class="ci-del" onclick="delItem(${i})">삭제</button>
         </div>
         <div class="ci-price">${fmt(c.price*c.qty)}</div>
@@ -499,7 +490,7 @@ function renderSummary(){
   }
   $("summaryBox").className = "";
   $("summaryBox").innerHTML =
-    cart.map(c=>`· ${c.no}번 ${c.name} (${c.color}/${c.size}) × ${c.qty} = ${fmt(c.price*c.qty)}`).join("<br>") +
+    cart.map(c=>`· ${c.name} (${c.color}) × ${c.qty} = ${fmt(c.price*c.qty)}`).join("<br>") +
     `<br>· 배송비 ${isFreeShip() ? "무료 (15만원 이상)" : fmt(shipFee())}<br><b>합계 ${fmt(goodsTotal()+shipFee())}</b>`;
 }
 
@@ -572,7 +563,7 @@ async function submitOrder(){
     zip: $("cZip").value.trim(),
     addr: ($("cAddr").value + " " + $("cAddr2").value).trim(),
     memo: [$("cMemo").value.trim(), $("cReq").value.trim() ? "요청: " + $("cReq").value.trim() : ""].filter(Boolean).join(" / "),
-    items: "[플리츠] " + cart.map(c=>`${c.no}번 ${c.name}(${c.color}/${c.size})x${c.qty}`).join(", "),
+    items: "[플리츠] " + cart.map(c=>`${c.name}(${c.color})x${c.qty}`).join(", "),
     goods: goodsTotal(),
     ship: shipFee(),
     total: goodsTotal()+shipFee(),
