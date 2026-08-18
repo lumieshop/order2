@@ -428,7 +428,7 @@ async function loadProducts(silent){
         price: Number(r.price) || 0,
         coupang: Number(r.coupang) || 0,
         stock: Number(r.stock) || 0,
-        exp: String(r.exp || ""),
+        exp: fmtExp(r.exp),
         soldout: String(r.status || "").indexOf("품절") > -1 || Number(r.stock) === 0,
         desc: String(r.desc || "")
       })).filter(p => p.name && p.price);
@@ -442,6 +442,22 @@ async function loadProducts(silent){
 let shown = 20;
 const qty = {};
 
+function fmtExp(v){
+  if(!v) return "";
+  const s = String(v).trim();
+  // ISO 형태(2026-12-03T00:00:00.000Z 포함)
+  let m = s.match(/^(\d{4})[-.\/\s]+(\d{1,2})[-.\/\s]+(\d{1,2})/);
+  if(m) return m[1] + "-" + ("0"+m[2]).slice(-2) + "-" + ("0"+m[3]).slice(-2);
+  // 20261203 형태
+  m = s.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if(m) return m[1] + "-" + m[2] + "-" + m[3];
+  // Date 객체 문자열 등 마지막 시도
+  const d = new Date(s);
+  if(!isNaN(d.getTime()) && d.getFullYear() > 2000){
+    return d.getFullYear() + "-" + ("0"+(d.getMonth()+1)).slice(-2) + "-" + ("0"+d.getDate()).slice(-2);
+  }
+  return s;
+}
 function disc(p){ return p.coupang > 0 ? Math.round((1 - p.price / p.coupang) * 100) : 0; }
 function badge(d){
   if(d >= 70) return '<span class="badge b1">🔥 역대급 특가 ' + d + '%</span>';
@@ -481,7 +497,7 @@ function renderList(reset){
       ${d > 0 ? badge(d) + '<span class="meta" style="margin-left:6px;">' + save.toLocaleString() + '원 절약</span>' : ''}
       <div class="meta">
         ${p.soldout ? '<span class="low">품절</span>' : (p.stock <= 10 ? '<span class="low">⚠️ 품절임박 · 잔여 ' + p.stock + '개</span>' : '📦 재고 ' + p.stock + '개')}
-        ${p.exp ? ' · 유통기한 ' + p.exp : ''}
+        ${p.exp ? ' · 유통기한 ' + fmtExp(p.exp) : ''}
       </div>
       ${p.desc ? '<div class="desc">' + p.desc + '</div>' : ''}
       <div class="act">
