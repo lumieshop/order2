@@ -522,9 +522,12 @@ async function addItem(i){
   const q = qty[i] || 1;
   const same = cart.find(c => c.name === p.name);
   if(same){
-    if(!confirm("이미 담겨 있는 상품입니다.\n수량을 추가할까요? (취소하면 담지 않습니다)")) return;
+    if(!confirm("이미 담겨 있는 상품입니다.\n수량을 추가하시겠습니까?\n\n" + p.name + "\n현재 " + same.qty + "개 → " + (same.qty + q) + "개")) return;
     same.qty += q;
   }else{
+    if(!confirm("아래 상품을 담을까요?\n\n" + p.name + "\n" +
+                p.price.toLocaleString() + "원 × " + q + "개 = " +
+                (p.price * q).toLocaleString() + "원")) return;
     cart.push({ name: p.name, price: p.price, opt: "", qty: q });
   }
   qty[i] = 1;
