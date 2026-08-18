@@ -510,17 +510,17 @@ function renderList(reset){
   }).join("") +
   (hits.length > shown ? '<div class="more" onclick="shown+=20;renderList(false);">＋ 더보기 (' + (hits.length - shown) + '개 남음)</div>' : '');
 }
-async function addItem(i){
-  await loadProducts(true);           // 담기 직전 최신 재고 확인
+function addItem(i){
   const p = PRODUCTS[i];
-  if(!p) { renderList(false); return; }
+  if(!p) return;
   if(p.soldout){
-    alert("「" + p.name + "」 은(는) 방금 품절되었습니다. 😢");
-    renderList(false);
+    alert("「" + p.name + "」 은(는) 품절되었습니다. 😢");
     return;
   }
   const q = qty[i] || 1;
   const same = cart.find(c => c.name === p.name);
+
+  // 팝업 먼저 (즉시 반응)
   if(same){
     if(!confirm("이미 담겨 있는 상품입니다.\n수량을 추가하시겠습니까?\n\n" + p.name + "\n현재 " + same.qty + "개 → " + (same.qty + q) + "개")) return;
     same.qty += q;
@@ -534,6 +534,21 @@ async function addItem(i){
   const el = document.getElementById("qv" + i);
   if(el) el.textContent = 1;
   renderCart();
+
+  // 담은 뒤 백그라운드로 재고 확인 (품절이면 안내 후 되돌림)
+  const nm = p.name;
+  loadProducts(true).then(()=>{
+    const fresh = PRODUCTS.find(x => x.name === nm);
+    if(fresh && fresh.soldout){
+      const idx = cart.findIndex(c => c.name === nm);
+      if(idx > -1){
+        cart.splice(idx, 1);
+        renderCart();
+        alert("「" + nm + "」 은(는) 방금 품절되어 주문 목록에서 제외되었습니다. 😢");
+      }
+    }
+    renderList(false);
+  });
 }
 function delItem(i){ cart.splice(i,1); renderCart(); }
 
