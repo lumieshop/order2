@@ -181,6 +181,10 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);
   background:none;border:none;color:var(--sub);font-size:12px;cursor:pointer;
   text-decoration:underline;padding:2px 0;margin-top:3px;
 }
+.ci-qty{display:flex;align-items:center;gap:6px;margin-top:8px;}
+.ci-qty .qb{width:30px;height:30px;font-size:15px;}
+.ci-qty .qv{min-width:26px;text-align:center;font-weight:700;font-size:14px;}
+.ci-qty .ci-del{margin-top:0;margin-left:6px;}
 .sum-row{display:flex;justify-content:space-between;padding:9px 0 0;font-size:14.5px;}
 .sum-row.total{
   margin-top:8px;padding-top:12px;border-top:2px solid var(--ink);
@@ -299,7 +303,6 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
       <select id="selShip" onchange="renderCart()">
         <option value="4000">기본 배송 (10개당 4,000원)</option>
         <option value="7000">제주 및 도서산간 (10개당 7,000원)</option>
-        <option value="0">추가 주문 — 오늘 이미 주문한 경우만 (배송비 없음)</option>
       </select>
 
       <div class="sum-row"><span>배송비</span><b id="sumShip">4,000원</b></div>
@@ -552,9 +555,21 @@ function addItem(i){
   });
 }
 function delItem(i){ cart.splice(i,1); renderCart(); }
+function cartQty(i, d){
+  const c = cart[i];
+  if(!c) return;
+  const next = c.qty + d;
+  if(next < 1){
+    if(!confirm("수량이 0이 됩니다.\n주문 목록에서 삭제할까요?")) return;
+    cart.splice(i,1);
+  }else{
+    c.qty = next;
+  }
+  renderCart();
+}
 
 function todayStr(){ const d = new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
-function isAddl(){ return $("selShip").value === "0"; }
+function isAddl(){ return false; }   // 이번 방송은 추가주문 배송비 면제 없음
 function goodsTotal(){ return cart.reduce((s,c)=>s+c.price*c.qty,0); }
 function totalQty(){ return cart.reduce((s,c)=>s+c.qty,0); }
 function boxCount(){ return Math.ceil(totalQty() / 10); }   // 제품 10개당 박스 1개
@@ -572,10 +587,15 @@ function renderCart(){
   }else{
     list.innerHTML = cart.map((c,i)=>`
       <div class="cart-item">
-        <div>
+        <div style="flex:1;">
           <div class="ci-name">${c.name}</div>
-          <div class="ci-opt">${c.opt ? c.opt + " / " : ""}${c.qty}개</div>
-          <button class="ci-del" onclick="delItem(${i})">삭제</button>
+          <div class="ci-opt">${c.opt ? c.opt + " / " : ""}${fmt(c.price)} × ${c.qty}개</div>
+          <div class="ci-qty">
+            <button class="qb" onclick="cartQty(${i},-1)">−</button>
+            <span class="qv">${c.qty}</span>
+            <button class="qb" onclick="cartQty(${i},1)">＋</button>
+            <button class="ci-del" onclick="delItem(${i})">삭제</button>
+          </div>
         </div>
         <div class="ci-price">${fmt(c.price*c.qty)}</div>
       </div>`).join("");
