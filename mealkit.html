@@ -251,9 +251,10 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
 
       <div class="notice-block">
         <div class="nb-title">🚚 배송비 안내</div>
-        <div class="row-line"><span>기본 배송비</span><b>4,000원</b></div>
-        <div class="row-line"><span>제주 및 도서산간</span><b>7,000원</b></div>
-        <div class="row-line"><span>15만원 이상 구매 시</span><b style="color:var(--accent-dark);">무료배송 🎉</b></div>
+        <p style="font-size:13.5px;font-weight:800;color:var(--danger);margin-bottom:8px;">📦 제품 10개당 배송비 1회가 부과됩니다.</p>
+        <div class="row-line"><span>기본 배송비 (10개당)</span><b>4,000원</b></div>
+        <div class="row-line"><span>제주 및 도서산간 (10개당)</span><b>7,000원</b></div>
+        <p class="muted" style="margin-top:8px;">예) 15개 주문 시 박스 2개 → 배송비 8,000원 / 이번 방송은 무료배송이 적용되지 않습니다.</p>
       </div>
 
       <div class="notice-block">
@@ -294,10 +295,10 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
       <div class="sum-row"><span>총 상품 수</span><b id="sumCount">0개</b></div>
       <div class="sum-row"><span>상품 금액</span><b id="sumGoods">0원</b></div>
 
-      <label class="fld" style="margin-top:14px;">배송비</label>
+      <label class="fld" style="margin-top:14px;">배송비 <span class="muted">— 제품 10개당 1회 부과</span></label>
       <select id="selShip" onchange="renderCart()">
-        <option value="4000">기본 배송 (4,000원)</option>
-        <option value="7000">제주 및 도서산간 (7,000원)</option>
+        <option value="4000">기본 배송 (10개당 4,000원)</option>
+        <option value="7000">제주 및 도서산간 (10개당 7,000원)</option>
         <option value="0">추가 주문 — 오늘 이미 주문한 경우만 (배송비 없음)</option>
       </select>
 
@@ -555,12 +556,13 @@ function delItem(i){ cart.splice(i,1); renderCart(); }
 function todayStr(){ const d = new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function isAddl(){ return $("selShip").value === "0"; }
 function goodsTotal(){ return cart.reduce((s,c)=>s+c.price*c.qty,0); }
-function isFreeShip(){ return cart.length > 0 && goodsTotal() >= CONFIG.FREE_SHIP_MIN; }
+function totalQty(){ return cart.reduce((s,c)=>s+c.qty,0); }
+function boxCount(){ return Math.ceil(totalQty() / 10); }   // 제품 10개당 박스 1개
+function isFreeShip(){ return false; }                       // 이번 방송 무료배송 없음
 function shipFee(){
   if(!cart.length) return 0;
   if(isAddl()) return 0;
-  if(isFreeShip()) return 0;
-  return parseInt($("selShip").value,10);
+  return parseInt($("selShip").value,10) * boxCount();
 }
 
 function renderCart(){
@@ -581,7 +583,7 @@ function renderCart(){
   const cnt = cart.reduce((s,c)=>s+c.qty,0);
   $("sumCount").textContent = cnt + "개";
   $("sumGoods").textContent = fmt(goodsTotal());
-  $("sumShip").textContent  = (cart.length && isAddl()) ? "무료 (추가 주문)" : isFreeShip() ? "무료 🎉" : fmt(shipFee());
+  $("sumShip").textContent  = (cart.length && isAddl()) ? "무료 (추가 주문)" : (cart.length ? fmt(shipFee()) + " (" + boxCount() + "박스)" : fmt(0));
   $("sumTotal").textContent = fmt(goodsTotal()+shipFee());
   renderSummary();
 }
@@ -594,7 +596,7 @@ function renderSummary(){
   $("summaryBox").className = "";
   $("summaryBox").innerHTML =
     cart.map(c=>`· ${c.name}${c.opt ? " (" + c.opt + ")" : ""} × ${c.qty} = ${fmt(c.price*c.qty)}`).join("<br>") +
-    `<br>· 배송비 ${isAddl() ? "무료 (추가 주문)" : isFreeShip() ? "무료 (15만원 이상)" : fmt(shipFee())}<br><b>합계 ${fmt(goodsTotal()+shipFee())}</b>`;
+    `<br>· 배송비 ${isAddl() ? "무료 (추가 주문)" : fmt(shipFee()) + " (총 " + totalQty() + "개 · " + boxCount() + "박스)"}<br><b>합계 ${fmt(goodsTotal()+shipFee())}</b>`;
 }
 
 /* ---------- 주소 검색 (다음 우편번호) ---------- */
