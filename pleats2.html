@@ -476,7 +476,7 @@ function setColor(i, v){ pick[i] = v; }
 function stockText(c){
   if(c.soldout) return '<span class="low">품절</span>';
   if(c.stock === null) return '재고 확인중';
-  if(c.stock <= 5) return '<span class="low">⚠️ 품절임박 ' + c.stock + '개</span>';
+  if(c.stock <= 5) return '<span class="low">⚠️ 재고 ' + c.stock + '개 남음</span>';
   return '재고 ' + c.stock + '개';
 }
 
@@ -510,7 +510,7 @@ function renderList(reset){
     const allSold = p.colors.every(c => c.soldout);
     const opts = p.colors.map(c =>
       '<option value="' + c.name + '"' + (c.soldout ? " disabled" : "") + '>' +
-      c.name + (c.soldout ? " (품절)" : (c.stock !== null && c.stock <= 5 ? " (" + c.stock + "개)" : "")) +
+      c.name + (c.soldout ? " — 품절" : (c.stock !== null && c.stock <= 5 ? " — 재고 " + c.stock + "개 남음" : "")) +
       '</option>').join("");
     return `
     <div class="pitem ${allSold ? "sold" : ""}">
@@ -520,6 +520,7 @@ function renderList(reset){
       <select id="cs${i}" onchange="setColor(${i}, this.value)" style="margin-top:9px;">
         <option value="">색상을 선택하세요</option>${opts}
       </select>
+      <p class="hint" style="margin-top:5px;">※ 색상 옆 숫자는 <b>남은 재고</b>이며, 주문 수량은 아래에서 선택해주세요.</p>
       <div class="act">
         <button class="qb" onclick="chgQty(${i},-1)">−</button>
         <span class="qv" id="qv${i}">${qty[i] || 1}</span>
