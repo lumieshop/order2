@@ -487,12 +487,13 @@ function renderList(reset){
     return;
   }
   if(reset !== false) shown = 20;
-  const q = $("q").value.trim().toLowerCase();
+  let q = $("q").value.trim().toLowerCase();
+  q = q.replace(/번$/, "").trim();          // "2번" → "2"
   const isNum = /^\d+$/.test(q);
 
   const hits = PRODUCTS.map((p,i)=>({p,i})).filter(x => {
     if(!q) return true;
-    if(isNum) return String(x.p.no) === q || String(x.p.no).indexOf(q) === 0;
+    if(isNum) return String(x.p.no) === q;   // 번호는 정확히 일치할 때만
     return x.p.cat.toLowerCase().indexOf(q) > -1
         || x.p.code.toLowerCase().indexOf(q) > -1
         || x.p.colors.some(c => c.name.toLowerCase().indexOf(q) > -1);
