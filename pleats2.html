@@ -230,6 +230,11 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
   <!-- ============ 화면 1 : 안내 게이트 ============ -->
   <div id="screenGate">
         <div class="card">
+      <div class="notice-block" style="background:#FBF3F1;border:1.5px solid #E7C8C0;">
+        <div class="nb-title" style="color:var(--danger);">📦 배송 안내 (필독)</div>
+        <p>이번 방송 상품은 <b>배송까지 약 10일 정도</b> 소요됩니다.<br>여유 있게 기다려주시면 정성껏 보내드리겠습니다. 🙏</p>
+      </div>
+
       <div class="notice-danger">
         <div class="nd-title">🚫 반품 / 교환 및 CS 안내</div>
         <p style="font-size:13px;margin-bottom:8px;">도매 중개 거래 특성상 아래 규정이 적용되오니 신중한 구매 바랍니다.</p>
@@ -476,13 +481,6 @@ function chgQty(i, d){
 }
 function setColor(i, v){ pick[i] = v; }
 
-function stockText(c){
-  if(c.soldout) return '<span class="low">품절</span>';
-  if(c.stock === null) return '재고 확인중';
-  if(c.stock <= 5) return '<span class="low">⚠️ 재고 ' + c.stock + '개 남음</span>';
-  return '재고 ' + c.stock + '개';
-}
-
 function renderList(reset){
   if(!loaded){
     $("cnt").textContent = "";
@@ -511,20 +509,18 @@ function renderList(reset){
   const view = hits.slice(0, shown);
   $("list").innerHTML = view.map(x => {
     const p = x.p, i = x.i;
-    const allSold = p.colors.every(c => c.soldout);
+    const allSold = false;
     const opts = p.colors.map(c =>
-      '<option value="' + c.name + '"' + (c.soldout ? " disabled" : "") + '>' +
-      c.name + (c.soldout ? " — 품절" : (c.stock !== null && c.stock <= 5 ? " — 재고 " + c.stock + "개 남음" : "")) +
-      '</option>').join("");
+      '<option value="' + c.name + '">' + c.name + '</option>').join("");
     return `
     <div class="pitem ${allSold ? "sold" : ""}">
       <div class="nm">${p.no}번 · ${p.cat}</div>
       <div class="pr"><span class="now">${p.price.toLocaleString()}원</span></div>
-      <div class="meta">${p.colors.map(c => c.name + " " + stockText(c)).join(" · ")}</div>
+      <div class="meta">색상 ${p.colors.map(c => c.name).join(" · ")}</div>
       <select id="cs${i}" onchange="setColor(${i}, this.value)" style="margin-top:9px;">
         <option value="">색상을 선택하세요</option>${opts}
       </select>
-      <p class="hint" style="margin-top:5px;">※ 색상 옆 숫자는 <b>남은 재고</b>이며, 주문 수량은 아래에서 선택해주세요.</p>
+
       <div class="act">
         <button class="qb" onclick="chgQty(${i},-1)">−</button>
         <span class="qv" id="qv${i}">${qty[i] || 1}</span>
@@ -541,8 +537,6 @@ function addItem(i){
   if(!p) return;
   const color = pick[i] || "";
   if(!color){ alert("색상을 선택해주세요."); return; }
-  const c = p.colors.find(x => x.name === color);
-  if(!c || c.soldout){ alert("해당 색상은 품절되었습니다. 😢"); return; }
   const q = qty[i] || 1;
   const name = p.no + "번 " + p.cat;
   const same = cart.find(x => x.name === name && x.opt === color);
