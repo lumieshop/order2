@@ -205,12 +205,6 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
     <h1 class="page-title">가방 주문서</h1>
 
     <div class="card">
-      <div class="notice-block" style="background:#FBF3F1;border:1.5px solid #E7C8C0;">
-        <div class="nb-title" style="color:var(--danger);">📦 배송 안내 (필독)</div>
-        <p style="font-weight:700;">8월 14일(목)은 전국 <b>택배 없는 날</b>입니다.</p>
-        <p>이번 주 방송 주문 건은 <b>다음 주 중 순차 도착</b> 예정이오니 배송에 참고 부탁드립니다. 🙏</p>
-      </div>
-
       <div class="notice-danger">
         <div class="nd-title">🚫 반품 / 교환 및 CS 안내</div>
         <p style="font-size:13px;margin-bottom:8px;">도매 중개 거래 특성상 아래 규정이 적용되오니 신중한 구매 바랍니다.</p>
@@ -238,7 +232,6 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
         <div class="row-line"><span>기본 배송비</span><b>4,000원</b></div>
         <div class="row-line"><span>제주 및 도서산간</span><b>7,000원</b></div>
         <div class="row-line"><span>15만원 이상 구매 시</span><b style="color:var(--accent-dark);">무료배송 🎉</b></div>
-        <div class="row-line"><span>셀러 착용 목걸이</span><b>별도 배송 · 택배비 포함가</b></div>
       </div>
 
       <div class="notice-block">
@@ -285,26 +278,6 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
 
       <div style="margin-top:14px;">
         <button class="btn btn-primary" onclick="addToCart()">🛒 담기</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>✨ 셀러 착용 목걸이</h2>
-      <div class="found show" style="margin-top:0;">
-        <div class="pname">셀러 착용 목걸이</div>
-        <div class="pprice">43,000원 <span style="font-size:12px;color:var(--sub);font-weight:600;">(택배비 포함)</span></div>
-        <div class="pnote">가방과 별도 배송되어 택배비 4,000원이 포함된 금액입니다.</div>
-      </div>
-
-      <label class="fld">수량</label>
-      <div class="qty-row">
-        <button class="qty-btn" onclick="chgSetQty(-1)">−</button>
-        <input class="qty-val" type="number" id="setQty" value="1" min="1" readonly>
-        <button class="qty-btn" onclick="chgSetQty(1)">＋</button>
-      </div>
-
-      <div style="margin-top:14px;">
-        <button class="btn btn-primary" onclick="addSetup()">🛒 셋업 담기</button>
       </div>
     </div>
 
@@ -459,33 +432,14 @@ function addToCart(){
   $("inpQty").value = 1;
   renderCart();
 }
-function chgSetQty(d){
-  const q = Math.max(1, (parseInt($("setQty").value,10)||1) + d);
-  $("setQty").value = q;
-}
-function addSetup(){
-  const qty = parseInt($("setQty").value,10) || 1;
-  const name = "셀러 착용 목걸이(별도배송)";
-  const price = 43000; // 택배비 4,000원 포함
-  const same = cart.find(c => c.name===name);
-  if(same){
-    if(!confirm("이미 담겨 있는 상품입니다.\n수량을 추가할까요? (취소하면 담지 않습니다)")) return;
-    same.qty += qty;
-  }
-  else{ cart.push({ name, price, opt: "", qty, setup: true }); }
-  $("setQty").value = 1;
-  renderCart();
-}
 function delItem(i){ cart.splice(i,1); renderCart(); }
 
 function todayStr(){ const d = new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function isAddl(){ return $("selShip").value === "0"; }
 function goodsTotal(){ return cart.reduce((s,c)=>s+c.price*c.qty,0); }
-function regularTotal(){ return cart.reduce((s,c)=>s+(c.setup?0:c.price*c.qty),0); }
-function hasRegular(){ return cart.some(c=>!c.setup); }
-function isFreeShip(){ return hasRegular() && regularTotal() >= CONFIG.FREE_SHIP_MIN; }
+function isFreeShip(){ return cart.length > 0 && goodsTotal() >= CONFIG.FREE_SHIP_MIN; }
 function shipFee(){
-  if(!hasRegular()) return 0;   // 셋업만 주문 — 배송비는 셋업 가격에 이미 포함
+  if(!cart.length) return 0;
   if(isAddl()) return 0;
   if(isFreeShip()) return 0;
   return parseInt($("selShip").value,10);
@@ -509,7 +463,7 @@ function renderCart(){
   const cnt = cart.reduce((s,c)=>s+c.qty,0);
   $("sumCount").textContent = cnt + "개";
   $("sumGoods").textContent = fmt(goodsTotal());
-  $("sumShip").textContent  = (cart.length && !hasRegular()) ? "셋업 가격에 포함" : (cart.length && isAddl()) ? "무료 (추가 주문)" : isFreeShip() ? "무료 🎉" : fmt(shipFee());
+  $("sumShip").textContent  = (cart.length && isAddl()) ? "무료 (추가 주문)" : isFreeShip() ? "무료 🎉" : fmt(shipFee());
   $("sumTotal").textContent = fmt(goodsTotal()+shipFee());
   renderSummary();
 }
@@ -522,7 +476,7 @@ function renderSummary(){
   $("summaryBox").className = "";
   $("summaryBox").innerHTML =
     cart.map(c=>`· ${c.name}${c.opt ? " (" + c.opt + ")" : ""} × ${c.qty} = ${fmt(c.price*c.qty)}`).join("<br>") +
-    `<br>· 배송비 ${!hasRegular() ? "셋업 가격에 포함" : isAddl() ? "무료 (추가 주문)" : isFreeShip() ? "무료 (15만원 이상)" : fmt(shipFee())}<br><b>합계 ${fmt(goodsTotal()+shipFee())}</b>`;
+    `<br>· 배송비 ${isAddl() ? "무료 (추가 주문)" : isFreeShip() ? "무료 (15만원 이상)" : fmt(shipFee())}<br><b>합계 ${fmt(goodsTotal()+shipFee())}</b>`;
 }
 
 /* ---------- 주소 검색 (다음 우편번호) ---------- */
