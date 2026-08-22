@@ -282,6 +282,26 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
     </div>
 
     <div class="card">
+      <h2>✨ 셀러 착용 목걸이</h2>
+      <div class="found show" style="margin-top:0;">
+        <div class="pname">셀러 착용 목걸이</div>
+        <div class="pprice">39,000원</div>
+        <div class="pnote">가방과 함께 배송됩니다.</div>
+      </div>
+
+      <label class="fld">수량</label>
+      <div class="qty-row">
+        <button class="qty-btn" onclick="chgSetQty(-1)">−</button>
+        <input class="qty-val" type="number" id="setQty" value="1" min="1" readonly>
+        <button class="qty-btn" onclick="chgSetQty(1)">＋</button>
+      </div>
+
+      <div style="margin-top:14px;">
+        <button class="btn btn-primary" onclick="addSetup()">🛒 목걸이 담기</button>
+      </div>
+    </div>
+
+    <div class="card">
       <h2>🛒 주문 목록</h2>
       <div id="cartList"><div class="cart-empty">담긴 상품이 없습니다.</div></div>
 
@@ -430,6 +450,25 @@ function addToCart(){
   $("inpItemName").value = "";
   $("inpPrice").value = ""; $("inpOpt").value = "";
   $("inpQty").value = 1;
+  renderCart();
+}
+function chgSetQty(d){
+  const q = Math.max(1, (parseInt($("setQty").value,10)||1) + d);
+  $("setQty").value = q;
+}
+function addSetup(){
+  const qty = parseInt($("setQty").value,10) || 1;
+  const name = "셀러 착용 목걸이";
+  const price = 39000;
+  const same = cart.find(c => c.name === name);
+  if(same){
+    if(!confirm("이미 담겨 있는 상품입니다.\n수량을 추가하시겠습니까?\n\n" + name + "\n현재 " + same.qty + "개 → " + (same.qty + qty) + "개")) return;
+    same.qty += qty;
+  }else{
+    if(!confirm("아래 상품을 담을까요?\n\n" + name + "\n" + price.toLocaleString() + "원 × " + qty + "개 = " + (price*qty).toLocaleString() + "원")) return;
+    cart.push({ name, price, opt: "", qty });
+  }
+  $("setQty").value = 1;
   renderCart();
 }
 function delItem(i){ cart.splice(i,1); renderCart(); }
