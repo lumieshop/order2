@@ -283,12 +283,15 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
       <div class="sum-row"><span>총 상품 수</span><b id="sumCount">0개</b></div>
       <div class="sum-row"><span>상품 금액</span><b id="sumGoods">0원</b></div>
 
-      <label class="fld" style="margin-top:14px;">배송비</label>
-      <select id="selShip" onchange="renderCart()">
-        <option value="4000">기본 배송 (4,000원)</option>
-        <option value="7000">제주 및 도서산간 (7,000원)</option>
-        <option value="0">추가 주문 — 오늘 이미 주문한 경우만 (배송비 없음)</option>
-      </select>
+      <div id="shipWrap">
+        <label class="fld" style="margin-top:14px;">배송비</label>
+        <select id="selShip" onchange="renderCart()">
+          <option value="4000">기본 배송 (4,000원)</option>
+          <option value="7000">제주 및 도서산간 (7,000원)</option>
+          <option value="0">추가 주문 — 오늘 이미 주문한 경우만 (배송비 없음)</option>
+        </select>
+      </div>
+      <p id="freeMsg" style="display:none;margin-top:14px;font-size:14px;font-weight:700;color:var(--accent-dark);background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center;">🎉 15만원 이상 구매로 배송비가 무료입니다</p>
 
       <div class="sum-row"><span>배송비</span><b id="sumShip">4,000원</b></div>
       <div class="sum-row total"><span>총 입금 금액</span><span class="amt" id="sumTotal">0원</span></div>
@@ -416,7 +419,10 @@ function addToCart(){
   const qty = parseInt($("inpQty").value,10) || 1;
 
   const same = cart.find(c => c.name===name && c.price===price && c.opt===opt);
-  if(same){ same.qty += qty; }
+  if(same){
+    if(!confirm("이미 담겨 있는 상품입니다.\n수량을 추가할까요? (취소하면 담지 않습니다)")) return;
+    same.qty += qty;
+  }
   else{ cart.push({ name, price, opt, qty }); }
 
   $("inpItemName").value = "";
@@ -455,7 +461,10 @@ function renderCart(){
   const cnt = cart.reduce((s,c)=>s+c.qty,0);
   $("sumCount").textContent = cnt + "개";
   $("sumGoods").textContent = fmt(goodsTotal());
-  $("sumShip").textContent  = (cart.length && isAddl()) ? "무료 (추가 주문)" : isFreeShip() ? "무료 🎉" : fmt(shipFee());
+  const free = isFreeShip();
+  $("shipWrap").style.display = free ? "none" : "block";
+  $("freeMsg").style.display  = free ? "block" : "none";
+  $("sumShip").textContent  = (cart.length && isAddl()) ? "무료 (추가 주문)" : free ? "무료 🎉" : fmt(shipFee());
   $("sumTotal").textContent = fmt(goodsTotal()+shipFee());
   renderSummary();
 }
