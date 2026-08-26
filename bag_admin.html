@@ -233,6 +233,12 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
 .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:30px;font-size:14px;font-weight:700;opacity:0;pointer-events:none;transition:.2s;z-index:99;white-space:nowrap;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .toast.bad{background:var(--danger);}
+
+.phead{display:flex;gap:12px;align-items:flex-start;}
+.pimg{width:88px;height:88px;object-fit:cover;border-radius:10px;border:1px solid var(--line);background:#fff;flex:0 0 88px;cursor:zoom-in;}
+.pimg.sm{width:44px;height:44px;flex:0 0 44px;border-radius:8px;cursor:default;}
+.overlay.imgview{background:rgba(0,0,0,.85);cursor:zoom-out;}
+.overlay.imgview img{max-width:94vw;max-height:90vh;border-radius:10px;}
 </style>
 </head>
 <body>
@@ -295,25 +301,38 @@ function savePin(){
   toast("저장됐습니다");
 }
 
+let lastLive = "";
 async function load(){
   try{
     const res = await fetch(CONFIG.SHEET_URL + "?mode=bag&t=" + Date.now());
     const raw = await res.text();
-    if(raw === lastRaw) return;
-    const data = JSON.parse(raw);
-    lastRaw = raw;
-    PRODUCTS = (data.items||[]).map(r => ({
-      no: Number(r.no)||0, code: String(r.code||""), name: String(r.name||""), price: Number(r.price)||0,
-      colors: (r.colors||[]).map(c => ({ name: String(c[0]||""), soldout: Number(c[1])===1 }))
-    })).filter(p => p.no);
-    BYNO = {}; PRODUCTS.forEach(p => BYNO[p.no] = p);
-    LIVE = (data.live||[]).filter(l => BYNO[l.no]);
-    loaded = true;
-    renderLive(); renderSearch();
+    if(raw !== lastRaw){
+      const data = JSON.parse(raw);
+      lastRaw = raw;
+      const base = String(data.base || "");
+      PRODUCTS = (data.items||[]).map(r => {
+        let img = String(r.img||"");
+        if(img && !/^https?:\/\//.test(img)) img = base + img;
+        return { no: Number(r.no)||0, code: String(r.code||""), name: String(r.name||""), price: Number(r.price)||0, img: img,
+          colors: (r.colors||[]).map(c => ({ name: String(c[0]||""), soldout: Number(c[1])===1 })) };
+      }).filter(p => p.no);
+      BYNO = {}; PRODUCTS.forEach(p => BYNO[p.no] = p);
+      loaded = true;
+      renderSearch();
+    }
+    await loadLive();
   }catch(e){
     console.error(e);
     if(!loaded) $("liveList").innerHTML = "<p class='hint' style='color:var(--danger);text-align:center;padding:16px 0;'>불러오기 실패 — 네트워크 확인 후 새로고침</p>";
   }
+}
+async function loadLive(){
+  const res = await fetch(CONFIG.SHEET_URL + "?mode=baglive&t=" + Date.now());
+  const raw = await res.text();
+  if(raw === lastLive && LIVE.length) return;
+  lastLive = raw;
+  LIVE = (JSON.parse(raw).live||[]).filter(l => BYNO[l.no]);
+  renderLive();
 }
 
 function colorTxt(p){
@@ -328,9 +347,10 @@ function renderLive(){
     return `
     <div class="lrow ${idx===0 ? "top" : ""}">
       <div class="lseq">${l.seq}</div>
+      ${p.img ? `<img class="pimg sm" src="${p.img}" alt="" loading="lazy" onerror="this.style.display='none'">` : ""}
       <div style="flex:1;min-width:0;">
-        <div class="nm">${p.no}번 · ${p.name || p.code}</div>
-        <div class="code">${p.code} · ${p.price.toLocaleString()}원 · ${l.ts || ""}</div>
+        <div class="nm">${p.no}번 · ${l.name || p.name || p.code}</div>
+        <div class="code">${p.code} · ${(l.price || p.price).toLocaleString()}원 · ${l.ts || ""}</div>
       </div>
       <button class="btn-mini" onclick="remove(${p.no})">내리기</button>
     </div>`;
@@ -347,8 +367,13 @@ function renderSearch(){
   $("cnt").textContent = "검색 결과 " + hits.length + "개";
   $("list").innerHTML = hits.slice(0, 10).map(p => `
     <div class="pitem">
-      <div class="nm">${p.no}번 · <span style="font-family:monospace;">${p.code}</span></div>
-      <div class="meta">${colorTxt(p)}</div>
+      <div class="phead">
+        ${p.img ? `<img class="pimg" src="${p.img}" alt="" loading="lazy" onerror="this.style.display='none'">` : ""}
+        <div style="flex:1;min-width:0;">
+          <div class="nm">${p.no}번 · <span style="font-family:monospace;">${p.code}</span></div>
+          <div class="meta">${colorTxt(p)}</div>
+        </div>
+      </div>
       <div class="inline" style="margin-top:9px;">
         <input type="text" id="nm${p.no}" placeholder="품명 (예: 미니 토트)" value="${p.name.replace(/"/g,'&quot;')}">
         <input type="text" id="pr${p.no}" inputmode="numeric" placeholder="가격" value="${p.price || ""}" style="flex:0 0 110px;">
@@ -366,7 +391,7 @@ async function call(params){
     const res = await fetch(CONFIG.SHEET_URL + "?mode=live&pin=" + encodeURIComponent(pin()) + "&" + qs + "&t=" + Date.now());
     const j = await res.json();
     if(!j.ok){ toast(j.msg || "실패", true); return null; }
-    lastRaw = ""; await load();
+    lastRaw = ""; lastLive = ""; await load();
     return j;
   }catch(e){ console.error(e); toast("통신 실패 — 다시 시도", true); return null; }
   finally{ busy = false; }
@@ -391,7 +416,8 @@ async function clearAll(){
 
 if(pin()) $("pinCard").style.display = "none";
 load();
-setInterval(load, CONFIG.POLL_MS);
+setInterval(loadLive, CONFIG.POLL_MS);
+setInterval(load, 60000);
 </script>
 </body>
 </html>

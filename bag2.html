@@ -233,6 +233,12 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
 .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:30px;font-size:14px;font-weight:700;opacity:0;pointer-events:none;transition:.2s;z-index:99;white-space:nowrap;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .toast.bad{background:var(--danger);}
+
+.phead{display:flex;gap:12px;align-items:flex-start;}
+.pimg{width:88px;height:88px;object-fit:cover;border-radius:10px;border:1px solid var(--line);background:#fff;flex:0 0 88px;cursor:zoom-in;}
+.pimg.sm{width:44px;height:44px;flex:0 0 44px;border-radius:8px;cursor:default;}
+.overlay.imgview{background:rgba(0,0,0,.85);cursor:zoom-out;}
+.overlay.imgview img{max-width:94vw;max-height:90vh;border-radius:10px;}
 </style>
 </head>
 <body>
@@ -408,6 +414,7 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
 </div>
 
 <div class="overlay" id="loading"><div class="box">처리 중입니다…</div></div>
+<div class="overlay imgview" id="imgView" onclick="this.classList.remove('show')"><img src="" alt=""></div>
 
 <script>
 /* ================================================================
@@ -416,7 +423,8 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
 const CONFIG = {
   SHEET_URL: "https://script.google.com/macros/s/AKfycbypIdAUuQc6P793mJFNderKR2ymg_kFJniK6cOR-M3M9ej1Nj34TeaeFNML5tRGpUFU/exec",
   FREE_SHIP_MIN: 150000,
-  POLL_MS: 8000,          // 방송 노출 목록 갱신 주기 (밀리초)
+  LIVE_MS: 5000,          // 방송 노출 목록 갱신 주기 (밀리초)
+  CATALOG_MS: 60000,      // 전체 상품 갱신 주기
 };
 
 /* ================================================================
@@ -438,51 +446,81 @@ function startOrder(){
   $("screenGate").style.display = "none";
   $("screenOrder").style.display = "block";
   renderLive(); renderSearch(false);
-  loadProducts();
-  setInterval(()=>loadProducts(), CONFIG.POLL_MS);
+  loadLive();
+  setInterval(loadLive, CONFIG.LIVE_MS);
   loadSaved();
   window.scrollTo(0,0);
 }
 
-/* ---------- 시트 '가방' + '방송노출' 실시간 불러오기 ---------- */
-let PRODUCTS = [];       // {no, code, name, price, colors:[{name,soldout}]}
+/* ---------- 시트 '가방'(전체 상품, 60초) + '방송노출'(5초) 불러오기 ---------- */
+let PRODUCTS = [];       // {no, code, name, price, img, colors:[{name,soldout}]}
 let BYNO = {};
-let LIVE = [];           // [{seq,no,ts}] 최신순
+let LIVE = [];           // [{seq,no,name,price,ts}] 최신순
 let loaded = false;
-let lastRaw = "";
+let lastCatalog = "", lastLive = "";
 let shown = 20;
 const qty = {};          // qty[no]
 const pick = {};         // pick[no] = 색상명
 
-async function loadProducts(){
+// 페이지 열리자마자 전체 상품을 미리 받아둠 (안내 읽는 동안 로딩 끝나도록)
+async function loadCatalog(){
   if(!CONFIG.SHEET_URL) return false;
   try{
     const res = await fetch(CONFIG.SHEET_URL + "?mode=bag&t=" + Date.now());
     const raw = await res.text();
-    if(raw === lastRaw) return true;         // 변화 없으면 화면 유지
+    if(raw === lastCatalog) return true;
     const data = JSON.parse(raw);
     if(!data || !Array.isArray(data.items)) throw new Error("bad data");
-    lastRaw = raw;
-    PRODUCTS = data.items.map(r => ({
-      no: Number(r.no)||0, code: String(r.code||""), name: String(r.name||""),
-      price: Number(r.price)||0,
-      colors: (r.colors||[]).map(c => ({ name: String(c[0]||""), soldout: Number(c[1]) === 1 }))
-    })).filter(p => p.no);
+    lastCatalog = raw;
+    const base = String(data.base || "");
+    PRODUCTS = data.items.map(r => {
+      let img = String(r.img||"");
+      if(img && !/^https?:\/\//.test(img)) img = base + img;
+      return {
+        no: Number(r.no)||0, code: String(r.code||""), name: String(r.name||""),
+        price: Number(r.price)||0, img: img,
+        colors: (r.colors||[]).map(c => ({ name: String(c[0]||""), soldout: Number(c[1]) === 1 }))
+      };
+    }).filter(p => p.no);
     BYNO = {};
     PRODUCTS.forEach(p => BYNO[p.no] = p);
-    LIVE = (data.live||[]).filter(l => BYNO[l.no]);
     loaded = true;
     renderLive();
     renderSearch(false);
     return true;
   }catch(e){
     console.error("상품 불러오기 실패", e);
-    if(!loaded){
+    if(!loaded && $("screenOrder").style.display === "block"){
       $("liveList").innerHTML = "<p class='hint' style='text-align:center;padding:24px 0;color:var(--danger);'>상품을 불러오지 못했습니다.<br>네트워크 확인 후 새로고침해주세요.</p>";
     }
   }
   return false;
 }
+
+async function loadLive(){
+  if(!CONFIG.SHEET_URL) return;
+  try{
+    const res = await fetch(CONFIG.SHEET_URL + "?mode=baglive&t=" + Date.now());
+    const raw = await res.text();
+    if(raw === lastLive) return;
+    const data = JSON.parse(raw);
+    lastLive = raw;
+    LIVE = (data.live||[]);
+    // 띄우면서 입력한 품명·가격을 바로 반영 (전체 상품 갱신 전이라도)
+    let changed = false;
+    LIVE.forEach(l => {
+      const p = BYNO[l.no];
+      if(!p) return;
+      if(l.name && p.name !== l.name){ p.name = l.name; changed = true; }
+      if(l.price && p.price !== l.price){ p.price = l.price; changed = true; }
+    });
+    renderLive();
+    if(changed) renderSearch(false);
+  }catch(e){ console.error("방송노출 불러오기 실패", e); }
+}
+
+loadCatalog();
+setInterval(loadCatalog, CONFIG.CATALOG_MS);
 
 function chgQty(no, d){
   qty[no] = Math.max(1, (qty[no] || 1) + d);
@@ -493,6 +531,9 @@ function setColor(no, v){
   document.querySelectorAll("select[data-no='" + no + "']").forEach(s => { if(s.value !== v) s.value = v; });
 }
 function dispName(p){ return p.name ? p.name : p.code; }
+function openImg(src){
+  const v = $("imgView"); v.querySelector("img").src = src; v.classList.add("show");
+}
 
 function cardHtml(p, badge){
   const no = p.no;
@@ -506,9 +547,14 @@ function cardHtml(p, badge){
   return `
     <div class="pitem ${allSold ? "sold" : ""}">
       ${badge || ""}
-      <div class="nm">${no}번 · ${dispName(p)}</div>
-      <div class="code">품번 ${p.code}</div>
-      <div class="pr"><span class="now">${p.price.toLocaleString()}원</span></div>
+      <div class="phead">
+        ${p.img ? `<img class="pimg" src="${p.img}" alt="" loading="lazy" onclick="openImg(this.src)" onerror="this.style.display='none'">` : ""}
+        <div style="flex:1;min-width:0;">
+          <div class="nm">${no}번 · ${dispName(p)}</div>
+          <div class="code">품번 ${p.code}</div>
+          <div class="pr"><span class="now">${p.price.toLocaleString()}원</span></div>
+        </div>
+      </div>
       <select data-no="${no}" onchange="setColor(${no}, this.value)" style="margin-top:9px;">
         <option value="">색상을 선택하세요</option>${opts}
       </select>
@@ -531,7 +577,7 @@ function renderLive(){
     box.innerHTML = "<p class='hint' style='text-align:center;padding:20px 0;'>아직 소개된 상품이 없습니다.<br>방송이 시작되면 여기에 순서대로 올라와요 👜</p>";
     return;
   }
-  box.innerHTML = LIVE.map((l, idx) => {
+  box.innerHTML = LIVE.filter(l => BYNO[l.no]).map((l, idx) => {
     const p = BYNO[l.no];
     const badge = idx === 0
       ? '<span class="badge lv-now">🔴 지금 소개 중</span>'
@@ -591,7 +637,6 @@ function addItem(no){
   document.querySelectorAll(".qv[data-no='" + no + "']").forEach(el => el.textContent = 1);
   document.querySelectorAll("select[data-no='" + no + "']").forEach(s => s.value = "");
   renderCart();
-  lastRaw = ""; loadProducts();
 }
 function delItem(i){ cart.splice(i,1); renderCart(); }
 function cartQty(i, d){
