@@ -316,7 +316,7 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
 
     <div class="card">
       <h2>🔍 전체 상품 검색 <span class="tag">놓쳤을 때</span></h2>
-      <input type="text" id="q" placeholder="번호(예: 12) 또는 품번 뒷자리(예: 0647)" oninput="renderSearch()" style="font-size:15px;">
+      <input type="text" id="q" placeholder="품명(예: 파크백) 또는 품번 뒷자리(예: 1558)" oninput="renderSearch()" style="font-size:15px;">
       <p class="hint" id="cnt"></p>
       <div id="list" style="margin-top:6px;"></div>
     </div>
@@ -530,7 +530,7 @@ function setColor(no, v){
   pick[no] = v;
   document.querySelectorAll("select[data-no='" + no + "']").forEach(s => { if(s.value !== v) s.value = v; });
 }
-function dispName(p){ return p.name ? p.name : p.code; }
+function dispName(p){ return p.name ? p.name : p.code; }   // (검색용)
 function openImg(src){
   const v = $("imgView"); v.querySelector("img").src = src; v.classList.add("show");
 }
@@ -550,8 +550,8 @@ function cardHtml(p, badge){
       <div class="phead">
         ${p.img ? `<img class="pimg" src="${p.img}" alt="" loading="lazy" onclick="openImg(this.src)" onerror="this.style.display='none'">` : ""}
         <div style="flex:1;min-width:0;">
-          <div class="nm">${no}번 · ${dispName(p)}</div>
-          <div class="code">품번 ${p.code}</div>
+          <div class="nm">${p.name ? p.name : p.code}</div>
+          ${p.name ? `<div class="code">품번 ${p.code}</div>` : ""}
           <div class="pr"><span class="now">${p.price.toLocaleString()}원</span></div>
         </div>
       </div>
@@ -579,9 +579,7 @@ function renderLive(){
   }
   box.innerHTML = LIVE.filter(l => BYNO[l.no]).map((l, idx) => {
     const p = BYNO[l.no];
-    const badge = idx === 0
-      ? '<span class="badge lv-now">🔴 지금 소개 중</span>'
-      : '<span class="badge lv-seq">' + l.seq + '번째 소개' + (l.ts ? ' · ' + l.ts.slice(0,5) : '') + '</span>';
+    const badge = idx === 0 ? '<span class="badge lv-now">🔴 지금 소개 중</span>' : '';
     return cardHtml(p, badge);
   }).join("");
 }
@@ -592,7 +590,7 @@ function renderSearch(reset){
   let q = $("q").value.trim().toLowerCase();
   q = q.replace(/번$/, "").trim();
   if(!q){
-    $("cnt").textContent = "전체 " + PRODUCTS.length + "개 상품 · 번호나 품번을 입력하면 검색됩니다";
+    $("cnt").textContent = "품명 또는 품번 뒷자리를 입력하면 검색됩니다 (전체 " + PRODUCTS.length + "개)";
     $("list").innerHTML = "";
     return;
   }
@@ -607,7 +605,7 @@ function renderSearch(reset){
 
   $("cnt").textContent = "검색 결과 " + hits.length + "개";
   if(!hits.length){
-    $("list").innerHTML = "<p class='hint' style='text-align:center;padding:16px 0;'>검색 결과가 없습니다. 번호나 품번을 다시 확인해주세요.</p>";
+    $("list").innerHTML = "<p class='hint' style='text-align:center;padding:16px 0;'>검색 결과가 없습니다. 품명이나 품번 뒷자리를 다시 확인해주세요.</p>";
     return;
   }
   const view = hits.slice(0, shown);
@@ -623,7 +621,7 @@ function addItem(no){
   const c = p.colors.find(x => x.name === color);
   if(c && c.soldout){ alert("선택하신 색상은 판매가 종료되었습니다."); return; }
   const q = qty[no] || 1;
-  const name = no + "번 " + dispName(p);
+  const name = p.name ? (p.code + " " + p.name) : p.code;   // 주문내역: "26GZLM1558Z 파크백(블랙)x1"
   const same = cart.find(x => x.name === name && x.opt === color);
   if(same){
     if(!confirm("이미 담겨 있는 상품입니다.\n수량을 추가하시겠습니까?\n\n" + name + " (" + color + ")\n현재 " + same.qty + "개 → " + (same.qty + q) + "개")) return;
