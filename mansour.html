@@ -286,7 +286,8 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
       </div>
 
       <div class="notice-block">
-        <div class="nb-title">🚚 배송비 안내</div>
+        <div class="nb-title">🚚 배송 안내</div>
+        <p style="font-weight:800;color:var(--accent-dark);background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:11px;margin-bottom:10px;text-align:center;font-size:14.5px;">📦 배송은 <u>약 일주일</u> 정도 소요됩니다</p>
         <div class="row-line"><span>기본 배송비</span><b id="txtShipBase">-</b></div>
         <div class="row-line"><span>제주 및 도서산간</span><b id="txtShipRemote">-</b></div>
         <div class="row-line"><span><span id="txtFreeMin">-</span> 이상 구매 시</span><b style="color:var(--accent-dark);">무료배송 🎉</b></div>
@@ -304,6 +305,7 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
         </div>
         <p class="muted" style="margin-top:8px;">✔️ 계좌이체는 반드시 <b>닉네임으로 입금</b>해주세요.</p>
         <p class="muted" style="margin-top:4px;">✔️ 카드결제는 주문 완료 후 뜨는 <b>카드로 결제하기</b> 버튼으로 진행됩니다. (페이앱 안전결제)</p>
+        <p style="margin-top:8px;font-weight:800;color:var(--danger);background:#fff;border:1.5px solid #E7C8C0;border-radius:10px;padding:10px;text-align:center;font-size:14px;">💳 카드결제는 <u>부가세 <span class="txtVatRate"></span> 포함가</u>로 결제됩니다</p>
       </div>
 
       <label class="agree">
@@ -333,6 +335,7 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
 
     <div class="card">
       <h2>🛒 주문 목록</h2>
+      <p class="hint" style="margin:-6px 0 10px;">📦 배송은 약 <b>일주일</b> 정도 소요됩니다.</p>
       <div id="cartList"><div class="cart-empty">담긴 상품이 없습니다.</div></div>
 
       <div class="sum-row"><span>총 상품 수</span><b id="sumCount">0개</b></div>
@@ -345,6 +348,7 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
       <p id="freeMsg" style="display:none;margin-top:14px;font-size:14px;font-weight:700;color:var(--accent-dark);background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center;">🎉 <span class="txtFreeMin"></span> 이상 구매로 배송비가 무료입니다</p>
 
       <div class="sum-row"><span>배송비</span><b id="sumShip">-</b></div>
+      <div class="sum-row" id="vatRow" style="display:none;"><span>카드 부가세 (<span class="txtVatRate"></span>)</span><b id="sumVat">0원</b></div>
       <div class="sum-row total"><span>총 결제 금액</span><span class="amt" id="sumTotal">0원</span></div>
     </div>
 
@@ -378,7 +382,7 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
       <h2>💳 결제 방법</h2>
       <div class="payopt">
         <label class="payopt-item"><input type="radio" name="payMethod" value="계좌이체" checked onchange="renderPay()"><span>🏦 계좌이체<small>카카오뱅크로 닉네임 입금</small></span></label>
-        <label class="payopt-item"><input type="radio" name="payMethod" value="카드" onchange="renderPay()"><span>💳 카드결제<small>페이앱 안전결제창</small></span></label>
+        <label class="payopt-item"><input type="radio" name="payMethod" value="카드" onchange="renderPay()"><span>💳 카드결제<small>부가세 <span class="txtVatRate"></span> 추가</small></span></label>
       </div>
       <div id="payBank">
         <div class="acct" style="margin-top:12px;">
@@ -391,7 +395,8 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
         <p class="muted" style="margin-top:8px;">✔️ 위 <b>총 결제 금액</b>을 <b>닉네임으로</b> 입금해주세요.</p>
       </div>
       <div id="payCard" style="display:none;">
-        <p class="muted" style="margin-top:12px;background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:12px;line-height:1.6;">
+        <p style="margin-top:12px;font-weight:800;color:var(--danger);font-size:14px;text-align:center;">💳 카드는 부가세 <span class="txtVatRate"></span> 포함가입니다</p>
+        <p class="muted" style="margin-top:8px;background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:12px;line-height:1.6;">
           ✔️ <b>주문하기</b>를 누르면 결제 화면이 뜹니다. <b>카드로 결제하기</b> 버튼을 눌러 결제를 완료해주세요.<br>
           ✔️ 결제 후 <b>확인</b>을 누르면 주문서로 돌아옵니다. 카드결제는 별도 입금이 필요 없어요.
         </p>
@@ -412,6 +417,7 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
     <div class="done-check">✓</div>
     <h2 id="doneTitle">주문이 완료되었습니다</h2>
     <p class="sub" id="doneSub">르미에 주문이 정상적으로 접수되었습니다.</p>
+    <p class="muted" style="margin:-10px 0 18px;">📦 배송은 약 일주일 정도 소요됩니다.</p>
     <div class="done-amount">
       <div class="lbl" id="doneLbl">이번 주문 입금 금액</div>
       <div class="amt" id="doneAmt">0원</div>
@@ -467,6 +473,7 @@ const CONFIG = {
   SHIP_BASE: 4000,        // 기본 배송비
   SHIP_REMOTE: 7000,      // 제주·도서산간
   FREE_SHIP_MIN: 150000,  // 이 금액 이상이면 무료배송
+  CARD_VAT_RATE: 0.10,    // 카드결제 시 상품금액에 붙는 부가세 비율 (0.10 = 10%, 0 이면 안 붙음)
   LIVE_MS: 5000,          // 방송 노출 목록 갱신 주기 (밀리초)
   CATALOG_MS: 60000,      // 전체 상품 갱신 주기
 };
@@ -490,6 +497,7 @@ let currentOid = "", currentPayUrl = "";
     `<option value="${CONFIG.SHIP_REMOTE}">제주 및 도서산간 (${won(CONFIG.SHIP_REMOTE)})</option>` +
     `<option value="0">추가 주문 — 오늘 이미 주문한 경우만 (배송비 없음)</option>`;
   $("sumShip").textContent = won(CONFIG.SHIP_BASE);
+  document.querySelectorAll(".txtVatRate").forEach(el => el.textContent = Math.round(CONFIG.CARD_VAT_RATE * 100) + "%");
 })();
 
 function payMethod(){ const r = document.querySelector("input[name=payMethod]:checked"); return r ? r.value : "계좌이체"; }
@@ -498,8 +506,10 @@ function renderPay(){
   $("payBank").style.display = card ? "none" : "block";
   $("payCard").style.display = card ? "block" : "none";
   $("btnSubmit").textContent = card ? "💳 주문하고 카드결제하기" : "✈ 주문하기";
-  renderSummary();
+  renderCart();
 }
+function cardVat(){ return (payMethod() === "카드" && cart.length) ? Math.round(goodsTotal() * CONFIG.CARD_VAT_RATE) : 0; }
+function payTotal(){ return goodsTotal() + shipFee() + cardVat(); }
 let submitting = false;
 
 function copyAcct(btn){
@@ -734,7 +744,9 @@ function renderCart(){
   $("shipWrap").style.display = free ? "none" : "block";
   $("freeMsg").style.display  = free ? "block" : "none";
   $("sumShip").textContent  = (cart.length && isAddl()) ? "무료 (추가 주문)" : free ? "무료 🎉" : fmt(shipFee());
-  $("sumTotal").textContent = fmt(goodsTotal()+shipFee());
+  $("vatRow").style.display = (payMethod() === "카드" && CONFIG.CARD_VAT_RATE > 0) ? "flex" : "none";
+  $("sumVat").textContent = fmt(cardVat());
+  $("sumTotal").textContent = fmt(payTotal());
   renderSummary();
 }
 function renderSummary(){
@@ -746,7 +758,7 @@ function renderSummary(){
   $("summaryBox").className = "";
   $("summaryBox").innerHTML =
     cart.map(c=>`· ${c.name}${c.opt ? " (" + c.opt + ")" : ""} × ${c.qty} = ${fmt(c.price*c.qty)}`).join("<br>") +
-    `<br>· 배송비 ${isAddl() ? "무료 (추가 주문)" : isFreeShip() ? "무료 (" + $("txtFreeMin").textContent + " 이상)" : fmt(shipFee())}<br>· 결제 ${payMethod()}<br><b>합계 ${fmt(goodsTotal()+shipFee())}</b>`;
+    `<br>· 배송비 ${isAddl() ? "무료 (추가 주문)" : isFreeShip() ? "무료 (" + $("txtFreeMin").textContent + " 이상)" : fmt(shipFee())}<br>· 결제 ${payMethod()}${cardVat() ? " (부가세 " + fmt(cardVat()) + ")" : ""}<br><b>합계 ${fmt(payTotal())}</b>`;
 }
 
 /* ---------- 주소 검색 (다음 우편번호) ---------- */
@@ -820,7 +832,7 @@ async function submitOrder(){
   if(pay === "카드" && $("cPhone").value.replace(/[^0-9]/g,"").length < 10){
     alert("카드결제는 휴대폰 번호가 필요합니다. 연락처를 확인해주세요."); $("cPhone").focus(); return;
   }
-  if(pay === "카드" && goodsTotal()+shipFee() < 1000){
+  if(pay === "카드" && payTotal() < 1000){
     alert("카드결제는 1,000원 이상부터 가능합니다."); return;
   }
   if(isAddl() && localStorage.getItem("lumie_last_order") !== todayStr()){
@@ -842,7 +854,8 @@ async function submitOrder(){
     items: cart.map(c=>`${c.name}x${c.qty}`).join(", ") + (isAddl() ? " [추가주문]" : ""),
     goods: goodsTotal(),
     ship: shipFee(),
-    total: goodsTotal()+shipFee(),
+    vat: cardVat(),                 // 카드 부가세 (계좌이체면 0)
+    total: payTotal(),              // 상품 + 배송비 + 카드부가세
     agree: "교환·반품 불가 규정 동의",
     pay: pay,             // 계좌이체 / 카드
     oid: currentOid,      // 주문번호 (카드결제 매칭용)
@@ -873,7 +886,7 @@ async function submitOrder(){
   if(!CONFIG.SHEET_URL) $("testNote").style.display = "block";
 
   if(pay === "카드"){
-    $("doneLbl").textContent = "카드 결제 금액";
+    $("doneLbl").textContent = "카드 결제 금액 (부가세 " + Math.round(CONFIG.CARD_VAT_RATE*100) + "% 포함)";
     $("doneSub").textContent = "아래 버튼으로 카드 결제를 진행해주세요.";
     $("doneBank").style.display = "none";
     $("doneCard").style.display = "block";
