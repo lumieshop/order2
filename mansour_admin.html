@@ -313,7 +313,9 @@ async function load(){
       PRODUCTS = (data.items||[]).map(r => {
         let img = String(r.img||"");
         if(img && !/^https?:\/\//.test(img)) img = base + img;
-        return { no: Number(r.no)||0, name: String(r.name||""), price: Number(r.price)||0, img: img, soldout: Number(r.soldout)===1 };
+        const prev = BYNO[Number(r.no)];
+        return { no: Number(r.no)||0, name: String(r.name||""), price: Number(r.price)||0, img: img, soldout: Number(r.soldout)===1,
+                 limit: Number(r.limit)||0, left: prev ? prev.left : undefined };
       }).filter(p => p.no);
       BYNO = {}; PRODUCTS.forEach(p => BYNO[p.no] = p);
       loaded = true;
@@ -330,11 +332,23 @@ async function loadLive(){
   const raw = await res.text();
   if(raw === lastLive && LIVE.length) return;
   lastLive = raw;
-  LIVE = (JSON.parse(raw).live||[]).filter(l => BYNO[l.no]);
+  const data = JSON.parse(raw);
+  LIVE = (data.live||[]).filter(l => BYNO[l.no]);
+  if(Array.isArray(data.sold)){
+    const soldSet = new Set(data.sold.map(Number));
+    PRODUCTS.forEach(p => p.soldout = soldSet.has(p.no));
+  }
+  if(data.left) PRODUCTS.forEach(p => { const v = data.left[String(p.no)]; p.left = v === undefined ? undefined : Number(v); });
+  renderSearch();
   renderLive();
 }
 
 
+function limitTxt(p){
+  if(!(p.limit > 0)) return "";
+  const l = p.left === undefined ? "?" : p.left;
+  return ` · <b style="${Number(l) <= 0 ? "color:var(--danger)" : Number(l) <= 5 ? "color:#C97B30" : "color:var(--ok)"}">남은 ${l}/${p.limit}</b>`;
+}
 function renderLive(){
   $("liveCnt").textContent = LIVE.length + "개";
   if(!LIVE.length){ $("liveList").innerHTML = "<p class='hint' style='text-align:center;padding:14px 0;'>아직 띄운 상품이 없습니다.</p>"; return; }
@@ -345,9 +359,10 @@ function renderLive(){
       <div class="lseq">${l.seq}</div>
       ${p.img ? `<img class="pimg sm" src="${p.img}" alt="" loading="lazy" onerror="this.style.display='none'">` : ""}
       <div style="flex:1;min-width:0;">
-        <div class="nm">${l.name || p.name}</div>
-        <div class="code">${(l.price || p.price).toLocaleString()}원${p.soldout ? " · 품절" : ""}${/^\d{2}:\d{2}/.test(l.ts||"") ? " · " + l.ts.slice(0,5) : ""}</div>
+        <div class="nm" ${p.soldout ? "style='text-decoration:line-through;opacity:.6'" : ""}>${l.name || p.name}</div>
+        <div class="code">${(l.price || p.price).toLocaleString()}원${p.soldout ? " · <b style='color:var(--danger)'>품절</b>" : ""}${limitTxt(p)}${/^\d{2}:\d{2}/.test(l.ts||"") ? " · " + l.ts.slice(0,5) : ""}</div>
       </div>
+      <button class="btn-mini" style="${p.soldout ? "color:var(--ok);border-color:var(--ok);" : "color:var(--danger);border-color:#E7C8C0;"}" onclick="toggleSold(${p.no})">${p.soldout ? "해제" : "품절"}</button>
       <button class="btn-mini" onclick="remove(${p.no})">내리기</button>
     </div>`;
   }).join("");
@@ -367,14 +382,17 @@ function renderSearch(){
         ${p.img ? `<img class="pimg" src="${p.img}" alt="" loading="lazy" onerror="this.style.display='none'">` : ""}
         <div style="flex:1;min-width:0;">
           <div class="nm">${p.name}</div>
-          <div class="meta">${p.price.toLocaleString()}원${p.soldout ? " · <b style='color:var(--danger)'>품절</b>" : ""}</div>
+          <div class="meta">${p.price.toLocaleString()}원${p.soldout ? " · <b style='color:var(--danger)'>품절</b>" : ""}${limitTxt(p)}</div>
         </div>
       </div>
       <div class="inline" style="margin-top:9px;">
         <input type="text" id="nm${p.no}" placeholder="상품명" value="${p.name.replace(/"/g,'&quot;')}">
         <input type="text" id="pr${p.no}" inputmode="numeric" placeholder="가격" value="${p.price || ""}" style="flex:0 0 110px;">
       </div>
-      <button class="btn btn-primary" style="margin-top:9px;padding:12px;font-size:15px;" onclick="push(${p.no})">📺 이 상품 띄우기</button>
+      <div class="inline" style="margin-top:9px;">
+        <button class="btn btn-primary" style="padding:12px;font-size:15px;" onclick="push(${p.no})">📺 이 상품 띄우기</button>
+        <button class="btn btn-outline fit" style="padding:12px 14px;font-size:14px;${p.soldout ? "color:var(--ok);border-color:var(--ok);" : "color:var(--danger);border-color:#E7C8C0;"}" onclick="toggleSold(${p.no})">${p.soldout ? "품절 해제" : "품절"}</button>
+      </div>
     </div>`).join("") + (hits.length > 10 ? "<p class='hint' style='text-align:center;'>더 있어요 — 품번을 더 입력해주세요</p>" : "");
 }
 
@@ -403,6 +421,13 @@ async function remove(no){
   if(!confirm(no + "번 " + (BYNO[no] ? BYNO[no].name : "") + " 을(를) 목록에서 내릴까요?")) return;
   const r = await call({ action: "remove", no: no });
   if(r) toast("내렸습니다");
+}
+async function toggleSold(no){
+  const p = BYNO[no]; if(!p) return;
+  const toSold = !p.soldout;
+  if(!confirm(no + "번 " + p.name + "\n" + (toSold ? "품절 처리할까요? 고객 주문서에서 '판매종료'로 바뀝니다." : "품절을 해제할까요?"))) return;
+  const r = await call({ action: toSold ? "soldout" : "restock", no: no });
+  if(r) toast(toSold ? "품절 처리됨" : "품절 해제됨");
 }
 async function clearAll(){
   if(!confirm("띄운 상품 목록을 전부 지웁니다.\n(주문에는 영향 없음)\n\n방송 시작 전에만 눌러주세요. 진행할까요?")) return;

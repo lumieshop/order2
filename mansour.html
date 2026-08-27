@@ -552,10 +552,13 @@ async function loadCatalog(){
     PRODUCTS = data.items.map(r => {
       let img = String(r.img||"");
       if(img && !/^https?:\/\//.test(img)) img = base + img;
+      const prev = BYNO[Number(r.no)];
       return {
         no: Number(r.no)||0, name: String(r.name||""),
         price: Number(r.price)||0, img: img,
-        soldout: Number(r.soldout) === 1
+        soldout: Number(r.soldout) === 1,
+        limit: Number(r.limit)||0,                       // 판매 한도 (0 = 무제한)
+        left: prev && prev.left !== undefined ? prev.left : undefined
       };
     }).filter(p => p.no);
     BYNO = {};
@@ -582,8 +585,21 @@ async function loadLive(){
     const data = JSON.parse(raw);
     lastLive = raw;
     LIVE = (data.live||[]);
-    // 띄우면서 입력한 품명·가격을 바로 반영 (전체 상품 갱신 전이라도)
     let changed = false;
+    // 품절 상태를 5초마다 반영
+    if(Array.isArray(data.sold)){
+      const soldSet = new Set(data.sold.map(Number));
+      PRODUCTS.forEach(p => { const s = soldSet.has(p.no); if(p.soldout !== s){ p.soldout = s; changed = true; } });
+    }
+    // 한도 상품의 남은 수량
+    if(data.left && typeof data.left === "object"){
+      PRODUCTS.forEach(p => {
+        const v = data.left[String(p.no)];
+        const nv = (v === undefined) ? undefined : Number(v);
+        if(p.left !== nv){ p.left = nv; changed = true; }
+      });
+    }
+    // 띄우면서 입력한 품명·가격을 바로 반영 (전체 상품 갱신 전이라도)
     LIVE.forEach(l => {
       const p = BYNO[l.no];
       if(!p) return;
@@ -598,8 +614,12 @@ async function loadLive(){
 loadCatalog();
 setInterval(loadCatalog, CONFIG.CATALOG_MS);
 
+function leftOf(p){ return (p.limit > 0 && p.left !== undefined) ? p.left : Infinity; }   // 남은 수량 (무제한이면 Infinity)
+function isGone(p){ return p.soldout || leftOf(p) <= 0; }
 function chgQty(no, d){
   qty[no] = Math.max(1, (qty[no] || 1) + d);
+  const p = BYNO[no];
+  if(p && leftOf(p) < qty[no]){ qty[no] = Math.max(1, leftOf(p)); alert("남은 수량이 " + leftOf(p) + "개예요."); }
   document.querySelectorAll(".qv[data-no='" + no + "']").forEach(el => el.textContent = qty[no]);
 }
 function dispName(p){ return p.name ? p.name : (p.no + "번"); }
@@ -609,22 +629,28 @@ function openImg(src){
 
 function cardHtml(p, badge){
   const no = p.no;
+  const gone = isGone(p);
+  const left = leftOf(p);
+  let leftTag = "";
+  if(!gone && p.limit > 0 && left !== Infinity){
+    leftTag = `<span class="soldtag" style="${left <= 5 ? "background:#FBE3DE;color:var(--danger);" : "background:var(--soft);color:var(--accent-dark);"}">${left <= 5 ? "🔥 " : ""}남은 수량 ${left}개</span>`;
+  }
   return `
-    <div class="pitem ${p.soldout ? "sold" : ""}">
+    <div class="pitem ${gone ? "sold" : ""}">
       ${badge || ""}
       <div class="phead">
         ${p.img ? `<img class="pimg" src="${p.img}" alt="" loading="lazy" onclick="openImg(this.src)" onerror="this.style.display='none'">` : ""}
         <div style="flex:1;min-width:0;">
           <div class="nm">${dispName(p)}</div>
           <div class="pr"><span class="now">${p.price.toLocaleString()}원</span></div>
-          ${p.soldout ? '<span class="soldtag">판매종료</span>' : ''}
+          ${gone ? '<span class="soldtag">판매종료</span>' : leftTag}
         </div>
       </div>
       <div class="act">
         <button class="qb" onclick="chgQty(${no},-1)">−</button>
         <span class="qv" data-no="${no}">${qty[no] || 1}</span>
         <button class="qb" onclick="chgQty(${no},1)">＋</button>
-        <button class="add" onclick="addItem(${no})" ${p.soldout ? "disabled" : ""}>${p.soldout ? "판매종료" : "🛒 담기"}</button>
+        <button class="add" onclick="addItem(${no})" ${gone ? "disabled" : ""}>${gone ? "판매종료" : "🛒 담기"}</button>
       </div>
     </div>`;
 }
@@ -676,10 +702,14 @@ function renderSearch(reset){
 function addItem(no){
   const p = BYNO[no];
   if(!p) return;
-  if(p.soldout){ alert("판매가 종료된 상품입니다."); return; }
+  if(isGone(p)){ alert("판매가 종료된 상품입니다."); return; }
   const q = qty[no] || 1;
   const name = dispName(p).replace(/,/g, "·");   // 주문내역 구분자(,)와 겹치지 않게
   const same = cart.find(x => x.name === name);
+  const inCart = same ? same.qty : 0;
+  if(leftOf(p) < inCart + q){
+    alert("남은 수량이 " + leftOf(p) + "개예요." + (inCart ? "\n(이미 " + inCart + "개 담겨 있어요)" : "")); return;
+  }
   if(same){
     if(!confirm("이미 담겨 있는 상품입니다.\n수량을 추가하시겠습니까?\n\n" + name + "\n현재 " + same.qty + "개 → " + (same.qty + q) + "개")) return;
     same.qty += q;
@@ -697,6 +727,8 @@ function cartQty(i, d){
   const c = cart[i];
   if(!c) return;
   const next = c.qty + d;
+  const pp = PRODUCTS.find(x => dispName(x).replace(/,/g, "·") === c.name);
+  if(d > 0 && pp && leftOf(pp) < next){ alert("남은 수량이 " + leftOf(pp) + "개예요."); return; }
   if(next < 1){
     if(!confirm("수량이 0이 됩니다.\n주문 목록에서 삭제할까요?")) return;
     cart.splice(i,1);
@@ -827,6 +859,11 @@ async function submitOrder(){
   const need = [["cNick","닉네임"],["cName","수령인 성함"],["cPhone","연락처"],["cAddr","주소"]];
   for(const [id,label] of need){
     if(!$(id).value.trim()){ alert(label + "을(를) 입력해주세요."); $(id).focus(); return; }
+  }
+  for(const c of cart){
+    const pp = PRODUCTS.find(x => dispName(x).replace(/,/g, "·") === c.name);
+    if(pp && isGone(pp)){ alert(c.name + "\n\n방금 판매가 종료됐어요. 주문 목록에서 빼주세요."); return; }
+    if(pp && leftOf(pp) < c.qty){ alert(c.name + "\n\n남은 수량이 " + leftOf(pp) + "개예요. 수량을 줄여주세요."); return; }
   }
   const pay = payMethod();
   if(pay === "카드" && $("cPhone").value.replace(/[^0-9]/g,"").length < 10){
