@@ -222,6 +222,14 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
 .payopt-item input{width:18px;height:18px;accent-color:var(--accent);flex:0 0 auto;}
 .payopt-item span{font-weight:700;font-size:14.5px;line-height:1.3;}
 .payopt-item small{display:block;font-weight:500;font-size:11.5px;color:var(--sub);margin-top:2px;}
+#pendingTop{display:none;position:sticky;top:0;z-index:40;background:#B3402E;color:#fff;border-radius:12px;padding:12px 14px;margin:0 0 12px;font-size:14px;line-height:1.55;box-shadow:0 4px 14px rgba(0,0,0,.15);}
+#pendingTop b{color:#fff;}
+#pendingTop .btns{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}
+#pendingTop button{border:0;border-radius:8px;padding:8px 12px;font-weight:800;font-size:13px;cursor:pointer;background:#fff;color:#B3402E;}
+#cartBar{display:none;position:fixed;left:0;right:0;bottom:0;z-index:45;background:var(--accent);color:#fff;padding:12px 16px calc(12px + env(safe-area-inset-bottom));align-items:center;justify-content:space-between;gap:10px;font-weight:800;font-size:14.5px;box-shadow:0 -4px 14px rgba(0,0,0,.15);cursor:pointer;}
+#cartBar small{display:block;font-weight:600;font-size:12px;opacity:.92;margin-top:2px;}
+#cartBar .go{background:#fff;color:var(--accent-dark);border-radius:20px;padding:8px 14px;white-space:nowrap;font-size:13px;}
+body.hasbar #screenOrder{padding-bottom:84px;}
 </style>
 </head>
 <body>
@@ -297,6 +305,14 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
 
   <!-- ============ 화면 2 : 주문서 ============ -->
   <div id="screenOrder">
+    <div id="pendingTop">
+      💳 <b>아직 결제되지 않은 카드 주문</b>이 있어요.<br>담아두신 상품이 <b>주문 목록에 그대로</b> 있으니 다시 담지 마시고, 필요하면 수정만 해서 <b>주문하기</b>를 눌러주세요.
+      <div class="btns">
+        <button onclick="scrollToCart()">🛒 담긴 상품 보기</button>
+        <button id="btnPrevPayTop" onclick="openPrevPay()" style="display:none;">💳 그대로 결제하기</button>
+        <button onclick="discardPending()" style="background:rgba(255,255,255,.25);color:#fff;">🗑 비우기</button>
+      </div>
+    </div>
 
     <div class="card">
       <h2>🎁 상품 담기</h2>
@@ -442,6 +458,10 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
   </div>
 
   <footer>LUMIE · 르미에</footer>
+  <div id="cartBar" onclick="scrollToCart()">
+    <div><span id="cartBarTxt">🛒 담긴 상품 0개</span><small id="cartBarSub"></small></div>
+    <span class="go">주문 목록 보기 ▼</span>
+  </div>
 </div>
 
 <div class="overlay" id="loading"><div class="box">처리 중입니다…</div></div>
@@ -476,8 +496,24 @@ function getPending(){ try{ const p = JSON.parse(localStorage.getItem(PENDING_KE
 function setPending(p){ try{ p ? localStorage.setItem(PENDING_KEY, JSON.stringify(p)) : localStorage.removeItem(PENDING_KEY); }catch(e){} }
 function showPendingNote(show){
   const p = getPending();
-  $("pendingNote").style.display = (show && p) ? "block" : "none";
-  $("btnPrevPay").style.display = (show && p && p.payurl) ? "inline-block" : "none";
+  const on = !!(show && p);
+  $("pendingNote").style.display = on ? "block" : "none";
+  $("pendingTop").style.display = on ? "block" : "none";
+  $("btnPrevPay").style.display = (on && p.payurl) ? "inline-block" : "none";
+  $("btnPrevPayTop").style.display = (on && p.payurl) ? "inline-block" : "none";
+  renderCartBar();
+}
+function scrollToCart(){ const el = $("cartList"); if(el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }
+// 하단 고정 바: 상품 목록이 길어도 담긴 게 있다는 걸 항상 보이게
+function renderCartBar(){
+  const bar = $("cartBar"); if(!bar) return;
+  const show = cart.length > 0 && $("screenOrder").style.display === "block";
+  bar.style.display = show ? "flex" : "none";
+  document.body.classList.toggle("hasbar", show);
+  if(!show) return;
+  const n = cart.reduce((s,c)=>s+c.qty,0);
+  $("cartBarTxt").textContent = "🛒 담긴 상품 " + n + "개 · " + fmt(payTotal());
+  $("cartBarSub").textContent = ($("pendingTop").style.display === "block") ? "결제 안 된 이전 주문이 그대로 담겨 있어요" : "";
 }
 function openPrevPay(){ const p = getPending(); if(p && p.payurl) location.href = p.payurl; }
 function discardPending(){
@@ -752,6 +788,7 @@ function renderCart(){
   $("sumTotal").textContent = fmt(payTotal());
   renderSummary();
   saveCart();
+  renderCartBar();
 }
 function renderSummary(){
   if(!cart.length){
@@ -912,6 +949,7 @@ async function submitOrder(){
   $("loading").classList.remove("show");
   $("screenOrder").style.display = "none";
   $("screenDone").style.display = "block";
+  renderCartBar();
   window.scrollTo(0,0);
 
   if(pay === "카드") getPayLink(false);
