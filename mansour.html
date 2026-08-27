@@ -336,6 +336,14 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
     <div class="card">
       <h2>🛒 주문 목록</h2>
       <p class="hint" style="margin:-6px 0 10px;">📦 배송은 약 <b>일주일</b> 정도 소요됩니다.</p>
+      <div id="pendingNote" style="display:none;background:#FBF3F1;border:1px solid #E7C8C0;border-radius:10px;padding:12px;margin-bottom:10px;font-size:13.5px;line-height:1.6;">
+        💳 <b>아직 결제되지 않은 카드 주문</b>이 있어 담아두신 상품을 그대로 불러왔어요.<br>
+        상품을 추가·수정한 뒤 <b>다시 주문</b>하면 이전 결제요청은 자동으로 취소됩니다.
+        <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn-copy" id="btnPrevPay" onclick="openPrevPay()" style="display:none;">💳 그대로 결제하기</button>
+          <button class="btn-copy" onclick="discardPending()">🗑 이미 결제했어요 / 비우기</button>
+        </div>
+      </div>
       <div id="cartList"><div class="cart-empty">담긴 상품이 없습니다.</div></div>
 
       <div class="sum-row"><span>총 상품 수</span><b id="sumCount">0개</b></div>
@@ -438,6 +446,8 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
     <div id="doneCard" style="display:none;">
       <a class="btn btn-primary" id="btnPay" href="#" style="text-decoration:none;margin-bottom:10px;font-size:17px;">💳 카드로 결제하기</a>
       <p class="muted" id="payHint" style="margin-bottom:16px;line-height:1.6;">결제창에서 카드 결제를 마치고 <b>확인</b>을 누르면 이 주문서로 돌아옵니다.<br>결제 전까지는 주문이 <b>결제 대기</b> 상태예요.</p>
+      <button class="btn btn-outline" onclick="editPending()" style="margin-bottom:6px;">🛒 상품 추가·수정하고 다시 주문하기</button>
+      <p class="muted" style="margin:0 0 16px;font-size:12.5px;line-height:1.5;">결제 전이라면 담긴 상품을 고쳐서 다시 주문할 수 있어요. 이전 결제요청은 자동으로 취소됩니다.</p>
       <div id="payFail" style="display:none;background:#FBF3F1;border:1px solid #E7C8C0;border-radius:10px;padding:12px;margin-bottom:16px;font-size:13.5px;color:var(--danger);line-height:1.6;">
         결제창을 만들지 못했습니다. <span id="payFailMsg"></span><br>
         <button class="btn-copy" style="margin-top:8px;" onclick="getPayLink(true)">🔄 다시 시도</button>
@@ -484,6 +494,57 @@ const CONFIG = {
 let cart = [];
 let currentOid = "", currentPayUrl = "";
 
+/* ---------- 담은 상품 · 미결제 카드주문 기억하기 (같은 기기에서 다시 열면 이어서 주문) ---------- */
+const CART_KEY = "lumie_mn_cart", PENDING_KEY = "lumie_mn_pending";
+function saveCart(){ try{ localStorage.setItem(CART_KEY, JSON.stringify(cart)); }catch(e){} }
+function clearCartStore(){ try{ localStorage.removeItem(CART_KEY); }catch(e){} }
+function getPending(){ try{ const p = JSON.parse(localStorage.getItem(PENDING_KEY) || "null"); return (p && p.oid) ? p : null; }catch(e){ return null; } }
+function setPending(p){ try{ p ? localStorage.setItem(PENDING_KEY, JSON.stringify(p)) : localStorage.removeItem(PENDING_KEY); }catch(e){} }
+function showPendingNote(show){
+  const p = getPending();
+  $("pendingNote").style.display = (show && p) ? "block" : "none";
+  $("btnPrevPay").style.display = (show && p && p.payurl) ? "inline-block" : "none";
+}
+function openPrevPay(){ const p = getPending(); if(p && p.payurl) location.href = p.payurl; }
+function discardPending(){
+  if(!confirm("담긴 상품을 비우고 처음부터 다시 담을까요?\n(이미 결제하신 주문은 그대로 유지됩니다)")) return;
+  setPending(null); cart = []; clearCartStore(); renderCart(); showPendingNote(false);
+}
+// 완료 화면(카드 결제 전)에서 "상품 추가·수정" → 주문서로 되돌아감. 다시 주문하면 이전 결제요청은 서버에서 '대체됨' 처리
+function editPending(){
+  submitting = false;
+  $("screenDone").style.display = "none";
+  $("screenOrder").style.display = "block";
+  renderCart(); showPendingNote(true);
+  window.scrollTo(0,0);
+}
+// 주문서 시작 시: 저장된 장바구니 복원 → 이전 카드주문이 이미 결제됐으면 비움
+async function restoreCart(){
+  let saved = [];
+  try{ saved = JSON.parse(localStorage.getItem(CART_KEY) || "[]"); }catch(e){}
+  let p = getPending();
+  if(p && Date.now() - (p.ts || 0) > 2 * 86400000){ setPending(null); p = null; }   // 이틀 지난 건 잊음
+  if(Array.isArray(saved) && saved.length && !cart.length){
+    cart = saved.filter(c => c && c.name && Number(c.qty) > 0)
+                .map(c => ({ name: String(c.name), price: Number(c.price) || 0, opt: String(c.opt || ""), qty: Number(c.qty) || 1 }));
+    renderCart();
+    if(p) showPendingNote(true);
+  }
+  if(!p || !CONFIG.SHEET_URL) return;
+  const snapshot = JSON.stringify(cart);
+  try{
+    const res = await fetch(CONFIG.SHEET_URL + "?mode=paystate&o=" + encodeURIComponent(p.oid) + "&t=" + Date.now());
+    const j = await res.json();
+    if(j.ok && (j.paid || j.replaced)){
+      setPending(null);
+      if(j.paid && JSON.stringify(cart) === snapshot){ cart = []; clearCartStore(); renderCart(); }   // 결제 끝난 주문 → 장바구니 비움
+      showPendingNote(false);
+    }else if(j.ok && j.payurl){
+      p.payurl = j.payurl; setPending(p); showPendingNote(true);
+    }
+  }catch(e){}
+}
+
 // 배송비 안내·선택지를 CONFIG 값으로 채움
 (function initShip(){
   const won = n => n.toLocaleString("ko-KR") + "원";
@@ -526,6 +587,7 @@ function startOrder(){
   loadLive();
   setInterval(loadLive, CONFIG.LIVE_MS);
   loadSaved();
+  restoreCart();
   window.scrollTo(0,0);
 }
 
@@ -780,6 +842,7 @@ function renderCart(){
   $("sumVat").textContent = fmt(cardVat());
   $("sumTotal").textContent = fmt(payTotal());
   renderSummary();
+  saveCart();
 }
 function renderSummary(){
   if(!cart.length){
@@ -878,6 +941,7 @@ async function submitOrder(){
   submitting = true;
   saveCustomer();
 
+  const prevPending = getPending();
   currentOid = makeOid();
   const order = {
     time: new Date().toLocaleString("ko-KR"),
@@ -896,6 +960,7 @@ async function submitOrder(){
     agree: "교환·반품 불가 규정 동의",
     pay: pay,             // 계좌이체 / 카드
     oid: currentOid,      // 주문번호 (카드결제 매칭용)
+    replace: (prevPending && prevPending.oid !== currentOid) ? prevPending.oid : "",   // 결제 안 한 이전 카드주문 → 서버에서 '대체됨' 처리
     cat: "mansour",
   };
 
@@ -920,6 +985,9 @@ async function submitOrder(){
   }
   $("doneAmt").textContent = fmt(order.total);
   try{ localStorage.setItem("lumie_last_order", todayStr()); }catch(e){}
+  if(pay === "카드"){ setPending({ oid: currentOid, ts: Date.now(), payurl: "" }); saveCart(); }   // 결제 전 → 장바구니 유지
+  else { setPending(null); cart = []; clearCartStore(); }                                            // 계좌이체 → 접수 완료
+  showPendingNote(false);
   if(!CONFIG.SHEET_URL) $("testNote").style.display = "block";
 
   if(pay === "카드"){
@@ -954,6 +1022,7 @@ async function getPayLink(manual){
       const j = await res.json();
       if(j.ok && j.payurl){
         currentPayUrl = j.payurl;
+        { const pp = getPending(); if(pp && pp.oid === currentOid){ pp.payurl = j.payurl; setPending(pp); } }
         try{ localStorage.setItem("lumie_mn_pay_" + currentOid, j.payurl); }catch(e){}
         $("btnPay").href = j.payurl; $("btnPay").textContent = "💳 카드로 결제하기 (" + $("doneAmt").textContent + ")"; $("btnPay").style.opacity = "1";
         return;
@@ -973,6 +1042,7 @@ async function getPayLink(manual){
   const m = location.search.match(/[?&]paid=([^&]+)/);
   if(!m) return;
   const oid = decodeURIComponent(m[1]);
+  { const pp = getPending(); if(!pp || pp.oid === oid){ setPending(null); clearCartStore(); cart = []; } }
   $("screenGate").style.display = "none";
   $("screenOrder").style.display = "none";
   $("screenDone").style.display = "block";
