@@ -350,7 +350,8 @@ footer{ text-align:center;color:var(--sub);font-size:11.5px;margin-top:28px;lett
       <div class="sum-row"><span>상품 금액</span><b id="sumGoods">0원</b></div>
 
       <div id="shipWrap">
-        <label class="fld" style="margin-top:14px;">배송비</label>
+        <label class="fld" style="margin-top:14px;">배송비 <span class="muted" style="font-weight:500;">(하루에 한 번만 · 추가 주문은 배송비 없음)</span></label>
+        <p class="hint" id="shipHint" style="display:none;margin:0 0 8px;color:var(--ok);font-weight:700;">✔️ 오늘 이미 주문하셨어요 — 추가 주문은 배송비 없이 접수됩니다.</p>
         <select id="selShip" onchange="renderCart()"></select>
       </div>
       <p id="freeMsg" style="display:none;margin-top:14px;font-size:14px;font-weight:700;color:var(--accent-dark);background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center;">🎉 <span class="txtFreeMin"></span> 이상 구매로 배송비가 무료입니다</p>
@@ -587,7 +588,8 @@ function startOrder(){
   loadLive();
   setInterval(loadLive, CONFIG.LIVE_MS);
   loadSaved();
-  restoreCart();
+  restoreCart().then(applyShipDefault);
+  applyShipDefault();
   window.scrollTo(0,0);
 }
 
@@ -802,6 +804,14 @@ function cartQty(i, d){
 
 function todayStr(){ const d = new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function isAddl(){ return $("selShip").value === "0"; }
+// 오늘 이미 (결제까지 된) 주문이 있으면 true — 결제 안 된 카드주문(pending)이 남아있으면 아직 첫 주문으로 봄
+function orderedToday(){ try{ return localStorage.getItem("lumie_last_order") === todayStr() && !getPending(); }catch(e){ return false; } }
+// 오늘 이미 주문한 고객은 배송비를 '추가 주문(없음)'으로 기본 선택
+function applyShipDefault(){
+  const again = orderedToday();
+  $("shipHint").style.display = again ? "block" : "none";
+  if(again && $("selShip").value !== "0"){ $("selShip").value = "0"; renderCart(); }
+}
 function goodsTotal(){ return cart.reduce((s,c)=>s+c.price*c.qty,0); }
 function isFreeShip(){ return cart.length > 0 && goodsTotal() >= CONFIG.FREE_SHIP_MIN; }
 function shipFee(){
@@ -934,6 +944,9 @@ async function submitOrder(){
   }
   if(pay === "카드" && payTotal() < 1000){
     alert("카드결제는 1,000원 이상부터 가능합니다."); return;
+  }
+  if(!isAddl() && !isFreeShip() && orderedToday()){
+    if(confirm("오늘 이미 주문하셨어요. 배송비는 하루에 한 번만 내면 됩니다.\n\n배송비 없이 '추가 주문'으로 접수할까요?")){ $("selShip").value = "0"; renderCart(); }
   }
   if(isAddl() && localStorage.getItem("lumie_last_order") !== todayStr()){
     if(!confirm("배송비가 '추가 주문 (배송비 없음)'으로 선택되어 있습니다.\n오늘 이미 주문하신 경우에만 해당됩니다.\n\n이대로 주문할까요?")) return;
